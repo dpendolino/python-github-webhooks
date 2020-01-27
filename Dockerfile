@@ -1,5 +1,5 @@
-FROM python:2.7-alpine
-MAINTAINER "Matjaž Finžgar" <matjaz@finzgar.net>
+FROM python:3.8-alpine
+LABEL maintiner="Daniel Pendolino <daniel@pendolino.info>"
 
 WORKDIR /app
 

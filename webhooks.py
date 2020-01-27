@@ -55,9 +55,10 @@ def index():
 
     # Allow Github IPs only
     if config.get('github_ips_only', True):
+        print("gh ips")
         src_ip = ip_address(
             # TODO: Do this better
-            u'{}'.format(request.environ.get('HTTP_X_REAL_IP', request.remote_addr)) # work around NGINX setting the real IP in HTTP_X_REAL_IP
+            '{}'.format(request.environ.get('HTTP_X_REAL_IP', request.remote_addr)) # work around NGINX setting the real IP in HTTP_X_REAL_IP
             #u'{}'.format(request.remote_addr)  # Fix stupid ipaddress issue
         )
         whitelist = requests.get('https://api.github.com/meta').json()['hooks']
