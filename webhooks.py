@@ -55,11 +55,8 @@ def index():
 
     # Allow Github IPs only
     if config.get('github_ips_only', True):
-        print("gh ips")
         src_ip = ip_address(
-            # TODO: Do this better
-            '{}'.format(request.environ.get('HTTP_X_REAL_IP', request.remote_addr)) # work around NGINX setting the real IP in HTTP_X_REAL_IP
-            #u'{}'.format(request.remote_addr)  # Fix stupid ipaddress issue
+            u'{}'.format(request.access_route[0])  # Fix stupid ipaddress issue
         )
         whitelist = requests.get('https://api.github.com/meta').json()['hooks']
 
@@ -67,6 +64,9 @@ def index():
             if src_ip in ip_network(valid_ip):
                 break
         else:
+            logging.error('IP {} not allowed'.format(
+                src_ip
+            ))
             abort(403)
 
     # Enforce secret
@@ -82,7 +82,7 @@ def index():
             abort(501)
 
         # HMAC requires the key to be bytes, but data is string
-        mac = hmac.new(str(secret), msg=request.data, digestmod=sha1)
+        mac = hmac.new(str(secret), msg=request.data, digestmod='sha1')
 
         # Python prior to 2.7.7 does not have hmac.compare_digest
         if hexversion >= 0x020707F0:
@@ -102,8 +102,9 @@ def index():
 
     # Gather data
     try:
-        payload = loads(request.data)
-    except:
+        payload = request.get_json()
+    except Exception:
+        logging.warning('Request parsing failed')
         abort(400)
 
     # Determining the branch is tricky, as it only appears for certain event
@@ -125,7 +126,7 @@ def index():
 
         elif event in ['push']:
             # Push events provide a full Git ref in 'ref' and not a 'ref_type'.
-            branch = payload['ref'].split('/')[2]
+            branch = payload['ref'].split('/', 2)[2]
 
     except KeyError:
         # If the payload structure isn't what we expect, we'll live without
@@ -143,6 +144,11 @@ def index():
     }
     logging.info('Metadata:\n{}'.format(dumps(meta)))
 
+    # Skip push-delete
+    if event == 'push' and payload['deleted']:
+        logging.info('Skipping push-delete event for {}'.format(dumps(meta)))
+        return dumps({'status': 'skipped'})
+
     # Possible hooks
     scripts = []
     if branch and name:
@@ -155,7 +161,7 @@ def index():
     # Check permissions
     scripts = [s for s in scripts if isfile(s) and access(s, X_OK)]
     if not scripts:
-        return ''
+        return dumps({'status': 'nop'})
 
     # Save payload to temporal file
     osfd, tmpfile = mkstemp()
@@ -174,8 +180,8 @@ def index():
 
         ran[basename(s)] = {
             'returncode': proc.returncode,
-            'stdout': stdout,
-            'stderr': stderr,
+            'stdout': stdout.decode('utf-8'),
+            'stderr': stderr.decode('utf-8'),
         }
 
         # Log errors if a hook failed
@@ -189,7 +195,7 @@ def index():
 
     info = config.get('return_scripts_info', False)
     if not info:
-        return ''
+        return dumps({'status': 'done'})
 
     output = dumps(ran, sort_keys=True, indent=4)
     logging.info(output)

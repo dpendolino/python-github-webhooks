@@ -10,7 +10,7 @@ Install
 
 ::
 
-    git clone git@github.com:carlos-jenkins/python-github-webhooks.git
+    git clone https://github.com/carlos-jenkins/python-github-webhooks.git
     cd python-github-webhooks
 
 
@@ -25,14 +25,15 @@ Dependencies
 Setup
 =====
 
-You can configure what the application does by changing ``config.json``:
+You can configure what the application does by copying the sample config file
+``config.json.sample`` to ``config.json`` and adapting it to your needs:
 
 ::
 
     {
         "github_ips_only": true,
         "enforce_secret": "",
-        "return_scripts_info": true
+        "return_scripts_info": true,
         "hooks_path": "/.../hooks/"
     }
 
@@ -49,7 +50,7 @@ You can configure what the application does by changing ``config.json``:
  you will be able to see the result of your hooks from within your GitHub
  hooks configuration page (see "Recent Deliveries").
  Default: ``true``.
- :hooks_path: Configures a path to import the hooks. If not set, it'll import
+:hooks_path: Configures a path to import the hooks. If not set, it'll import
  the hooks from the default location (/.../python-github-webhooks/hooks)
 
 
@@ -100,6 +101,11 @@ Not all events have an associated branch, so a branch-specific hook cannot
 fire for such events. For events that contain a pull_request object, the
 base branch (target for the pull request) is used, not the head branch.
 
+The payload structure depends on the event type. Please review:
+
+    https://developer.github.com/v3/activity/events/types/
+
+
 Deploy
 ======
 
@@ -125,11 +131,12 @@ VirtualHost file:
 
     </VirtualHost>
 
-You can now add that URL to your Github repository settings:
+You can now register the hook in your Github repository settings:
 
     https://github.com/youruser/myrepo/settings/hooks
 
-And add a Webhook to the WSGI script URL:
+To register the webhook select Content type: ``application/json`` and set the URL to the URL
+of your WSGI script:
 
 ::
 
@@ -142,7 +149,7 @@ To deploy in a Docker container you have to expose the port 5000, for example
 with the following command:
 
 ::
-    
+
     git clone http://github.com/carlos-jenkins/python-github-webhooks.git
     docker build -t carlos-jenkins/python-github-webhooks python-github-webhooks
     docker run -d --name webhooks -p 5000:5000 carlos-jenkins/python-github-webhooks
@@ -156,6 +163,27 @@ You can also mount volume to setup the ``hooks/`` directory, and the file
       -v /path/to/my/hooks:/src/hooks \
       -v /path/to/my/config.json:/src/config.json \
       -p 5000:5000 python-github-webhooks
+
+
+Test your deployment
+====================
+
+To test your hook you may use the GitHub REST API with ``curl``:
+
+    https://developer.github.com/v3/
+
+::
+
+    curl --user "<youruser>" https://api.github.com/repos/<youruser>/<myrepo>/hooks
+
+Take note of the test_url.
+
+::
+
+    curl --user "<youruser>" -i -X POST <test_url>
+
+You should be able to see any log error in your webapp.
+
 
 Debug
 =====
